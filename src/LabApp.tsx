@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { bundledDensityExports, listBundledGraphs } from "./bundledGraphs";
+import { listBundledGraphs } from "./bundledGraphs";
+import { graphFromJson, type LabGraph } from "./graphFromJson";
+import { LabImportPanel } from "./LabImportPanel";
 import { surfaceScan, type SurfaceScanResult } from "./surfaceScan";
 import { surfaceStats, type SurfaceStats } from "./terrainPaint";
 import { LabMap, LabMapLegend } from "./LabMap";
@@ -23,8 +25,9 @@ const CONTENT_FIELDS: Record<string, number> = { Base: 64, Water: 64, Bedrock: 0
 const SEA_LEVEL = CONTENT_FIELDS.Water;
 
 export function LabApp() {
-  const graphs = useMemo(() => listBundledGraphs(), []);
-  const exports = useMemo(() => bundledDensityExports(), []);
+  const bundled = useMemo(() => listBundledGraphs(), []);
+  const [pasted, setPasted] = useState<LabGraph | null>(null);
+  const graphs = useMemo(() => (pasted ? [pasted, ...bundled] : bundled), [pasted, bundled]);
   const [selected, setSelected] = useState<string>("");
   const [scan, setScan] = useState<SurfaceScanResult | null>(null);
   const [stats, setStats] = useState<SurfaceStats | null>(null);
@@ -67,7 +70,7 @@ export function LabApp() {
           ySteps: Y_STEPS,
           rootNodeId: graph.rootNodeId,
           contentFields: CONTENT_FIELDS,
-          externalDensityExports: exports,
+          externalDensityExports: graph.exports,
           signal: controller.signal,
           onPartial: (heights) => {
             if (id !== runId.current) return;
@@ -89,14 +92,17 @@ export function LabApp() {
         if (id === runId.current) setBusy(false);
       }
     },
-    [graphs, exports],
+    [graphs],
   );
 
   useEffect(() => {
     if (selected) void run(selected);
   }, [selected, run]);
 
-  const missing = graphs.find((g) => g.name === selected)?.missingImports ?? [];
+  const active = graphs.find((g) => g.name === selected);
+  const missing = active?.missingImports ?? [];
+  const unsupported = active?.unsupported ?? [];
+  const approximated = active?.approximatedGraphs ?? 0;
   const cells = RESOLUTION * RESOLUTION;
   const pct = (n: number) => `${Math.round((n / cells) * 100)}%`;
 
@@ -143,7 +149,7 @@ export function LabApp() {
                 }}
               >
                 {g.name}
-                <span style={{ float: "right", color: "var(--tn-text-muted)" }}>{g.kind}</span>
+                <span style={{ float: "right", color: "var(--tn-text-muted)" }}>{g.nodes.length} · {g.kind}</span>
               </button>
             ))}
             {graphs.length === 0 && (
@@ -152,6 +158,20 @@ export function LabApp() {
               </p>
             )}
           </div>
+
+          <LabImportPanel
+            onError={setError}
+            onLoad={(json, name) => {
+              try {
+                const g = graphFromJson(json, name);
+                setPasted(g);
+                setSelected(g.name);
+                setError(null);
+              } catch (e) {
+                setError(e instanceof Error ? e.message : String(e));
+              }
+            }}
+          />
         </section>
 
         <section style={{ padding: 16, overflow: "auto" }}>
@@ -180,6 +200,27 @@ export function LabApp() {
             </p>
           )}
 
+          {(unsupported.length > 0 || approximated > 0) && (
+            <p role="status" style={noticeStyle}>
+              {approximated > 0 && (
+                <>
+                  {approximated} <code style={codeStyle}>Graph</code> node
+                  {approximated === 1 ? " was" : "s were"} stubbed out. TerraNova has no
+                  network generator, so whatever this graph carved — roads, rivers, ravines —
+                  is missing, and the terrain around it may be wrong too.{" "}
+                </>
+              )}
+              {unsupported.length > 0 && (
+                <>
+                  Unsupported node types evaluate to zero:{" "}
+                  <code style={codeStyle}>
+                    {unsupported.map((u) => (u.count > 1 ? `${u.type}×${u.count}` : u.type)).join(", ")}
+                  </code>.
+                </>
+              )}
+            </p>
+          )}
+
           <LabMap
             heights={scan?.heights ?? null}
             resolution={RESOLUTION}
@@ -200,6 +241,27 @@ export function LabApp() {
               {missing.length === 1 ? "Needs a shared resource that only ships" : `Needs ${missing.length} shared resources that only ship`}
               {" "}with the game: <code style={{ fontFamily: "var(--font-mono)" }}>{missing.join(", ")}</code>.
               Unresolved imports evaluate to zero, so this map is not what the graph really generates.
+            </p>
+          )}
+
+          {(unsupported.length > 0 || approximated > 0) && (
+            <p role="status" style={noticeStyle}>
+              {approximated > 0 && (
+                <>
+                  {approximated} <code style={codeStyle}>Graph</code> node
+                  {approximated === 1 ? " was" : "s were"} stubbed out. TerraNova has no
+                  network generator, so whatever this graph carved — roads, rivers, ravines —
+                  is missing, and the terrain around it may be wrong too.{" "}
+                </>
+              )}
+              {unsupported.length > 0 && (
+                <>
+                  Unsupported node types evaluate to zero:{" "}
+                  <code style={codeStyle}>
+                    {unsupported.map((u) => (u.count > 1 ? `${u.type}×${u.count}` : u.type)).join(", ")}
+                  </code>.
+                </>
+              )}
             </p>
           )}
 
@@ -247,5 +309,11 @@ const labelStyle: React.CSSProperties = {
   fontSize: 11, fontWeight: 500, color: "var(--tn-text-muted)",
   textTransform: "uppercase", letterSpacing: ".08em", margin: 0,
 };
+const noticeStyle: React.CSSProperties = {
+  marginBottom: 12, padding: "8px 10px", fontSize: 11, borderRadius: 6,
+  border: "1px solid var(--tn-border)", background: "rgba(181,146,76,.10)",
+  color: "var(--tn-text-secondary)", lineHeight: 1.6,
+};
+const codeStyle: React.CSSProperties = { fontFamily: "var(--font-mono)" };
 const dtStyle: React.CSSProperties = { color: "var(--tn-text-muted)" };
 const ddStyle: React.CSSProperties = { color: "var(--tn-text)", margin: 0 };
