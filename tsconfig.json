@@ -18,7 +18,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./vendor/terranova/src/*"],
-      "@tauri-apps/*": ["./src/tauriStub.ts"]
+      "@tauri-apps/*": ["./src/tauriStub.ts"],
+      "@/components/nodes/PrefabPreviewMini": ["./src/propPreviewStub.tsx"],
+      "@/components/nodes/PropPlacementMiniCanvas": ["./src/propPreviewStub.tsx"]
     }
   },
   "include": ["src", "vendor/terranova/src/vite-env.d.ts"]

@@ -26,6 +26,9 @@ const TERRANOVA_SRC = path.resolve(__dirname, "./vendor/terranova/src");
  * submodule — an alias keyed on "@/utils/x" silently misses the relative form.
  *
  *   @tauri-apps/*      -> desktop-only IPC; keeps Tauri out of the bundle.
+ *   PrefabPreviewMini  -> BaseNode imports it, and it pulls PrefabPreview3D ->
+ *                         @react-three/fiber, i.e. all of three.js. Props are
+ *                         out of scope here, so it renders nothing.
  *   previewWorkerLog   -> reads a debug flag off settingsStore, and that single
  *                         import drags in the whole node registry and three.js:
  *                           densityWorkerClient -> previewWorkerLog
@@ -40,12 +43,14 @@ const TERRANOVA_SRC = path.resolve(__dirname, "./vendor/terranova/src");
 function stubDesktopOnly(): Plugin {
   const tauri = path.resolve(__dirname, "./src/tauriStub.ts");
   const workerLog = path.resolve(__dirname, "./src/previewWorkerLogStub.ts");
+  const propPreview = path.resolve(__dirname, "./src/propPreviewStub.tsx");
   return {
     name: "terranova-lab:stub-desktop-only",
     enforce: "pre",
     resolveId(source) {
       if (source.startsWith("@tauri-apps/")) return tauri;
       if (/(^|[/\\])previewWorkerLog$/.test(source)) return workerLog;
+      if (/(^|[/\\])(PrefabPreviewMini|PropPlacementMiniCanvas)$/.test(source)) return propPreview;
       return null;
     },
   };

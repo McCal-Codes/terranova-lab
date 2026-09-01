@@ -10,7 +10,7 @@
     "analyze": "ANALYZE=1 vite build"
   },
   "dependencies": {
-    "@dagrejs/dagre": "^2.0.4",
+    "@dagrejs/dagre": "^2.0.3",
     "@dagrejs/graphlib": "^3.0.4",
     "@xyflow/react": "^12.10.0",
     "react": "^19.0.0",

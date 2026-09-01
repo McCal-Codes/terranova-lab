@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listBundledGraphs } from "./bundledGraphs";
 import { graphFromJson, mergedExports, unresolvedImports, type LabGraph } from "./graphFromJson";
 import { loadedSharedExports } from "./sharedResources";
@@ -8,6 +8,18 @@ import { surfaceScan, type SurfaceScanResult } from "./surfaceScan";
 import { surfaceStats, type SurfaceStats } from "./terrainPaint";
 import { LabMap, LabMapLegend } from "./LabMap";
 
+/**
+ * Lazy, deliberately. Importing TerraNova's node registry eagerly reorders
+ * module evaluation enough to trip the pre-existing
+ * `materialResolver <-> blockColorMap` cycle in the submodule into a TDZ error
+ * ("Cannot access 'u' before initialization") and blanks the page. Loading it
+ * as its own chunk lets the main graph settle first — and keeps ~200 node
+ * components out of the initial bundle.
+ */
+const LabGraphCanvas = lazy(() =>
+  import("./LabGraphCanvas").then((m) => ({ default: m.LabGraphCanvas })),
+);
+
 /** 128-block window centred on origin — matches the desktop preview default. */
 const RANGE_MIN = -64;
 const RANGE_MAX = 64;
@@ -16,7 +28,6 @@ const RESOLUTION = 80;
 /** Y window to scan for a surface, and how finely. */
 const Y_MIN = 0;
 const Y_MAX = 128;
-const Y_STEPS = 32;
 
 /**
  * Hytale worldgen leans on these named heights. The desktop app discovers them
@@ -32,6 +43,7 @@ export function LabApp() {
   const [sharedVersion, setSharedVersion] = useState(0);
   const graphs = useMemo(() => (pasted ? [pasted, ...bundled] : bundled), [pasted, bundled]);
   const [selected, setSelected] = useState<string>("");
+  const active = graphs.find((g) => g.name === selected);
   const [scan, setScan] = useState<SurfaceScanResult | null>(null);
   const [stats, setStats] = useState<SurfaceStats | null>(null);
   const [progress, setProgress] = useState<number>(0);
@@ -70,14 +82,13 @@ export function LabApp() {
           rangeMax: RANGE_MAX,
           yMin: Y_MIN,
           yMax: Y_MAX,
-          ySteps: Y_STEPS,
           rootNodeId: graph.rootNodeId,
           contentFields: CONTENT_FIELDS,
           externalDensityExports: mergedExports(graph, loadedSharedExports()),
           signal: controller.signal,
           onPartial: (heights) => {
             if (id !== runId.current) return;
-            setScan({ heights, resolution: RESOLUTION, yMin: Y_MIN, yMax: Y_MAX, ms: 0 });
+            setScan({ heights, resolution: RESOLUTION, yMin: Y_MIN, yMax: Y_MAX, ms: 0, workers: 0, slowestBandMs: 0 });
             setStats(surfaceStats(heights, SEA_LEVEL));
           },
           onProgress: (f) => {
@@ -102,7 +113,6 @@ export function LabApp() {
     if (selected) void run(selected);
   }, [selected, run]);
 
-  const active = graphs.find((g) => g.name === selected);
   const missing = active ? unresolvedImports(active, loadedSharedExports()) : [];
   const unsupported = active?.unsupported ?? [];
   const approximated = active?.approximatedGraphs ?? 0;
@@ -132,7 +142,7 @@ export function LabApp() {
       <main
         style={{
           flex: 1, minHeight: 0, display: "grid",
-          gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)",
+          gridTemplateColumns: "260px minmax(0,1fr) minmax(0,1fr)",
         }}
       >
         <section style={{ borderRight: "1px solid var(--tn-border)", padding: 16, overflow: "auto" }}>
@@ -185,7 +195,37 @@ export function LabApp() {
           />
         </section>
 
-        <section style={{ padding: 16, overflow: "auto" }}>
+        <section
+          style={{
+            borderRight: "1px solid var(--tn-border)", minWidth: 0,
+            display: "flex", flexDirection: "column", background: "var(--tn-bg)",
+          }}
+        >
+          <h2 style={{ ...labelStyle, padding: "16px 16px 8px" }}>Nodes</h2>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            {active ? (
+              <Suspense
+                fallback={
+                  <p style={{ padding: 16, fontSize: 11, color: "var(--tn-text-muted)" }}>
+                    Loading node editor…
+                  </p>
+                }
+              >
+                <LabGraphCanvas
+                  nodes={active.nodes}
+                  edges={active.edges}
+                  graphKey={`${active.name}:${active.nodes.length}`}
+                />
+              </Suspense>
+            ) : (
+              <p style={{ padding: 16, fontSize: 11, color: "var(--tn-text-muted)" }}>
+                Pick a graph or paste one to see its nodes.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section style={{ padding: 16, overflow: "auto", minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <h2 style={labelStyle}>Surface</h2>
             <span style={{ flex: 1 }} />
@@ -297,7 +337,8 @@ export function LabApp() {
             <dd style={ddStyle}>{stats ? `Y ${Math.round(stats.peak)}` : "—"}</dd>
             <dt style={dtStyle}>Scan</dt>
             <dd style={ddStyle}>
-              {RESOLUTION}&times;{RESOLUTION} columns, Y {Y_MIN} to {Y_MAX} in {Y_STEPS} steps
+              {RESOLUTION}&times;{RESOLUTION} columns, Y {Y_MIN} to {Y_MAX}
+              {scan ? `, ${scan.workers} workers (slowest band ${(scan.slowestBandMs / 1000).toFixed(2)}s)` : ""}
             </dd>
             <dt style={dtStyle}>Took</dt>
             <dd style={{ ...ddStyle, fontFamily: "var(--font-mono)" }}>

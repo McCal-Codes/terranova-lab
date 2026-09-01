@@ -72,6 +72,10 @@ export const ask = rejects("dialog.ask");
 
 // plugin-fs
 export const readTextFile = rejects("fs.readTextFile");
+export const writeFile = rejects("fs.writeFile");
+export const writeBinaryFile = rejects("fs.writeBinaryFile");
+export const readFile = rejects("fs.readFile");
+export const remove = rejects("fs.remove");
 export const writeTextFile = rejects("fs.writeTextFile");
 export const exists = async (..._args: unknown[]): Promise<boolean> => false;
 export const mkdir = rejects("fs.mkdir");
