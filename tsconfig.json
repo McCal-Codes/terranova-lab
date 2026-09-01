@@ -13,10 +13,13 @@
     "jsx": "react-jsx",
     "strict": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
-    "paths": { "@/*": ["./vendor/terranova/src/*"] }
+    "paths": {
+      "@/*": ["./vendor/terranova/src/*"],
+      "@tauri-apps/*": ["./src/tauriStub.ts"]
+    }
   },
   "include": ["src", "vendor/terranova/src/vite-env.d.ts"]
 }

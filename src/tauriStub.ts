@@ -24,13 +24,20 @@ export class TauriUnavailableError extends Error {
   }
 }
 
-const reject = (what: string) => () => Promise.reject(new TauriUnavailableError(what));
+/**
+ * Signatures are deliberately variadic. This module stands in for several
+ * `@tauri-apps/*` entry points at once, and its callers live in the submodule —
+ * a narrower signature type-errors at the call site (`invoke(cmd, args)`)
+ * even though resolution succeeds at runtime.
+ */
+const rejects = (what: string) => (..._args: unknown[]): Promise<never> =>
+  Promise.reject(new TauriUnavailableError(what));
 
 // api/core
-export function invoke<T>(cmd: string): Promise<T> {
+export function invoke<T>(cmd: string, ..._args: unknown[]): Promise<T> {
   return Promise.reject(new TauriUnavailableError(`invoke(${cmd})`));
 }
-export function convertFileSrc(filePath: string): string {
+export function convertFileSrc(filePath: string, _protocol?: string): string {
   return filePath;
 }
 export function isTauri(): boolean {
@@ -38,39 +45,39 @@ export function isTauri(): boolean {
 }
 
 // api/event
-export async function listen(): Promise<() => void> {
+export async function listen(..._args: unknown[]): Promise<() => void> {
   return () => {};
 }
-export async function once(): Promise<() => void> {
+export async function once(..._args: unknown[]): Promise<() => void> {
   return () => {};
 }
-export const emit = reject("emit");
+export const emit = rejects("emit");
 
 // api/app
-export const getVersion = async (): Promise<string> => "lab";
-export const getName = async (): Promise<string> => "TerraNova Lab";
+export const getVersion = async (..._args: unknown[]): Promise<string> => "lab";
+export const getName = async (..._args: unknown[]): Promise<string> => "TerraNova Lab";
 
 // api/path
-export const appDataDir = reject("appDataDir");
-export const resolve = reject("resolve");
-export const join = reject("join");
+export const appDataDir = rejects("appDataDir");
+export const resolve = rejects("resolve");
+export const join = rejects("join");
 export const sep = "/";
 
 // plugin-dialog
-export const open = reject("dialog.open");
-export const save = reject("dialog.save");
-export const message = reject("dialog.message");
-export const confirm = reject("dialog.confirm");
-export const ask = reject("dialog.ask");
+export const open = rejects("dialog.open");
+export const save = rejects("dialog.save");
+export const message = rejects("dialog.message");
+export const confirm = rejects("dialog.confirm");
+export const ask = rejects("dialog.ask");
 
 // plugin-fs
-export const readTextFile = reject("fs.readTextFile");
-export const writeTextFile = reject("fs.writeTextFile");
-export const exists = async (): Promise<boolean> => false;
-export const mkdir = reject("fs.mkdir");
-export const readDir = reject("fs.readDir");
+export const readTextFile = rejects("fs.readTextFile");
+export const writeTextFile = rejects("fs.writeTextFile");
+export const exists = async (..._args: unknown[]): Promise<boolean> => false;
+export const mkdir = rejects("fs.mkdir");
+export const readDir = rejects("fs.readDir");
 
 // plugin-updater
-export const check = reject("updater.check");
+export const check = rejects("updater.check");
 
 export default {};
