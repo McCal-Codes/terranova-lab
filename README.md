@@ -31,8 +31,22 @@ template:
 | 128×128 | ~74 ms |
 | 256×256 | ~285 ms |
 
-The map is a top-down **X/Z slice at a chosen Y** of the whole graph's output —
-not a heightmap. 2D nodes look the same at every Y; 3D nodes don't.
+The map is a top-down **surface view**: for each world column the scan walks Y
+downward and records the first solid sample (density >= 0, the same rule the
+desktop app's ThresholdedHeatmap uses), then classifies that height against sea
+level — water, beach, land, peaks, or air where no terrain exists at all.
+
+A single Y slice isn't enough for that: a heightfield density reads as one
+filled square, not a coastline.
+
+## Shared resources are desktop-only
+
+Graphs referencing vanilla Hytale shared resources by name (`Tropical_Beaches`,
+`Desert1_Terrain_Base`, ...) can't resolve them here — those ship inside the
+game's assets and a browser cannot read them. The evaluator resolves an unknown
+import to `0`, which silently flattens a whole graph, so the lab detects
+unresolved imports up front and says so rather than drawing a confident, wrong
+map.
 
 ## Develop
 
