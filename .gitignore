@@ -4,3 +4,11 @@ stats.html
 .DS_Store
 .vercel
 *.local
+
+# Hytale Licensed Assets must never be committed. The lab reads shared
+# resources from the user's own install at runtime and never bundles them.
+__test/
+**/HytaleGenerator/
+*Assets.zip
+
+tsconfig.tsbuildinfo

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listBundledGraphs } from "./bundledGraphs";
-import { graphFromJson, type LabGraph } from "./graphFromJson";
+import { graphFromJson, mergedExports, unresolvedImports, type LabGraph } from "./graphFromJson";
+import { loadedSharedExports } from "./sharedResources";
+import { SharedResourcePanel } from "./SharedResourcePanel";
 import { LabImportPanel } from "./LabImportPanel";
 import { surfaceScan, type SurfaceScanResult } from "./surfaceScan";
 import { surfaceStats, type SurfaceStats } from "./terrainPaint";
@@ -27,6 +29,7 @@ const SEA_LEVEL = CONTENT_FIELDS.Water;
 export function LabApp() {
   const bundled = useMemo(() => listBundledGraphs(), []);
   const [pasted, setPasted] = useState<LabGraph | null>(null);
+  const [sharedVersion, setSharedVersion] = useState(0);
   const graphs = useMemo(() => (pasted ? [pasted, ...bundled] : bundled), [pasted, bundled]);
   const [selected, setSelected] = useState<string>("");
   const [scan, setScan] = useState<SurfaceScanResult | null>(null);
@@ -70,7 +73,7 @@ export function LabApp() {
           ySteps: Y_STEPS,
           rootNodeId: graph.rootNodeId,
           contentFields: CONTENT_FIELDS,
-          externalDensityExports: graph.exports,
+          externalDensityExports: mergedExports(graph, loadedSharedExports()),
           signal: controller.signal,
           onPartial: (heights) => {
             if (id !== runId.current) return;
@@ -92,7 +95,7 @@ export function LabApp() {
         if (id === runId.current) setBusy(false);
       }
     },
-    [graphs],
+    [graphs, sharedVersion],
   );
 
   useEffect(() => {
@@ -100,7 +103,7 @@ export function LabApp() {
   }, [selected, run]);
 
   const active = graphs.find((g) => g.name === selected);
-  const missing = active?.missingImports ?? [];
+  const missing = active ? unresolvedImports(active, loadedSharedExports()) : [];
   const unsupported = active?.unsupported ?? [];
   const approximated = active?.approximatedGraphs ?? 0;
   const cells = RESOLUTION * RESOLUTION;
@@ -158,6 +161,14 @@ export function LabApp() {
               </p>
             )}
           </div>
+
+          <SharedResourcePanel
+            onError={setError}
+            onChange={() => {
+              setSharedVersion((v) => v + 1);
+              if (selected) void run(selected);
+            }}
+          />
 
           <LabImportPanel
             onError={setError}

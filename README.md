@@ -39,14 +39,33 @@ level — water, beach, land, peaks, or air where no terrain exists at all.
 A single Y slice isn't enough for that: a heightfield density reads as one
 filled square, not a coastline.
 
-## Shared resources are desktop-only
+## Shared resources
 
-Graphs referencing vanilla Hytale shared resources by name (`Tropical_Beaches`,
-`Desert1_Terrain_Base`, ...) can't resolve them here — those ship inside the
-game's assets and a browser cannot read them. The evaluator resolves an unknown
-import to `0`, which silently flattens a whole graph, so the lab detects
+Graphs reference vanilla resources by name — `World-River-Map`, `Biome-Map`,
+`Base-Simplex-*` and friends. Unresolved, the evaluator returns `0` for the
+import, which can silently flatten an entire graph, so the lab detects
 unresolved imports up front and says so rather than drawing a confident, wrong
 map.
+
+Load them with **Shared resources → Load from my install**, pointing at
+`Server/HytaleGenerator/Density/` in your own Hytale installation. They are
+Hytale's Licensed Assets, so the lab:
+
+- never bundles them, and never ships them in this repo or the deployed site;
+- never persists or uploads them — they live in memory for the session only;
+- reads only files you pick yourself.
+
+You supply your own copy; nothing is redistributed.
+
+## Unsupported nodes
+
+TerraNova implements 129 density node types, but not Hytale's `Graph` network
+generator (`Positions`, `ProximityConnector`, `NodeAction`, `EdgeAction`, ...),
+which builds roads, rivers and cave systems. Graphs using it cannot render
+correctly here — or in the desktop app, which has the same gap. The lab names
+unsupported node types instead of pretending, and substitutes the neutral
+element of a stubbed `Graph`'s consumer so the rest of the terrain still
+evaluates.
 
 ## Develop
 

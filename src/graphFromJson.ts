@@ -16,8 +16,8 @@ export interface LabGraph {
   kind: "biome" | "density";
   /** `ExportAs` subtrees defined by this file, so it can resolve its own imports. */
   exports: DensityExportMap;
-  /** Imported names nothing provides — these evaluate to 0 and flatten the graph. */
-  missingImports: string[];
+  /** Every external `Imported` name this graph references. */
+  importNames: string[];
   /** Node types the evaluator has no handler for. */
   unsupported: UnsupportedUse[];
   /** How many `Graph` nodes were swapped for their BackgroundValue. */
@@ -140,8 +140,24 @@ export function graphFromJson(
     rootNodeId,
     kind,
     exports,
-    missingImports: collectExternalImportedNames(nodes, edges).filter((n) => !exports[n]),
+    importNames: collectExternalImportedNames(nodes, edges),
     unsupported,
     approximatedGraphs: approx.replaced,
   };
+}
+
+/**
+ * Imports nothing can satisfy, given what is currently loaded.
+ *
+ * Recomputed rather than baked in at conversion time: the user can load shared
+ * resources from their Hytale install after a graph is already on screen, and
+ * previously-missing names should stop being missing.
+ */
+export function unresolvedImports(graph: LabGraph, ambient: DensityExportMap): string[] {
+  return graph.importNames.filter((name) => !graph.exports[name] && !ambient[name]);
+}
+
+/** Everything available to a graph: its own exports win over ambient ones. */
+export function mergedExports(graph: LabGraph, ambient: DensityExportMap): DensityExportMap {
+  return { ...ambient, ...graph.exports };
 }

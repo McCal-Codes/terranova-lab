@@ -1,1 +1,0 @@
-{"root":["./src/labapp.tsx","./src/labimportpanel.tsx","./src/labmap.tsx","./src/bundledgraphs.ts","./src/graphfromjson.ts","./src/main.tsx","./src/previewworkerlogstub.ts","./src/surfacescan.ts","./src/surfaceworker.ts","./src/tauristub.ts","./src/terrainpaint.ts","./src/unsupported.ts","./vendor/terranova/src/vite-env.d.ts"],"version":"5.9.3"}
